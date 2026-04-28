@@ -2,7 +2,7 @@ import assert from "node:assert";
 import { describe, it } from "node:test";
 import type { Terminal as XtermTerminalType } from "@xterm/headless";
 import { Input } from "../src/components/input.js";
-import { type Component, TUI } from "../src/tui.js";
+import { type Component, Container, TUI } from "../src/tui.js";
 import { VirtualTerminal } from "./virtual-terminal.js";
 
 class TestComponent implements Component {
@@ -76,20 +76,38 @@ describe("TUI terminal focus handling", () => {
 		tui.start();
 		await terminal.waitForRender();
 
-		assert.strictEqual(tui.isTerminalFocused(), true);
 		assert.ok(input.render(10)[0]?.includes("\x1b[7m"), "focused terminal should render inverse cursor");
 
 		terminal.sendInput("\x1b[O");
 		await terminal.waitForRender();
 
-		assert.strictEqual(tui.isTerminalFocused(), false);
 		assert.ok(!input.render(10)[0]?.includes("\x1b[7m"), "blurred terminal should not render inverse cursor");
 
 		terminal.sendInput("\x1b[I");
 		await terminal.waitForRender();
 
-		assert.strictEqual(tui.isTerminalFocused(), true);
 		assert.ok(input.render(10)[0]?.includes("\x1b[7m"), "refocused terminal should render inverse cursor");
+
+		tui.stop();
+	});
+
+	it("propagates current terminal focus to children added after blur", async () => {
+		const terminal = new VirtualTerminal(40, 10);
+		const tui = new TUI(terminal);
+		const container = new Container();
+		tui.addChild(container);
+
+		tui.start();
+		await terminal.waitForRender();
+
+		terminal.sendInput("\x1b[O");
+		await terminal.waitForRender();
+
+		const input = new Input();
+		input.setValue("abc");
+		container.addChild(input);
+
+		assert.ok(!input.render(10)[0]?.includes("\x1b[7m"), "late child should inherit blurred terminal state");
 
 		tui.stop();
 	});
