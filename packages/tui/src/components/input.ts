@@ -1,7 +1,7 @@
 import { getKeybindings } from "../keybindings.js";
 import { decodeKittyPrintable } from "../keys.js";
 import { KillRing } from "../kill-ring.js";
-import { type Component, CURSOR_MARKER, type Focusable } from "../tui.js";
+import { type Component, CURSOR_MARKER, type Focusable, isTerminalWindowFocused } from "../tui.js";
 import { UndoStack } from "../undo-stack.js";
 import { getSegmenter, isPunctuationChar, isWhitespaceChar, sliceByColumn, visibleWidth } from "../utils.js";
 
@@ -490,7 +490,7 @@ export class Input implements Component, Focusable {
 		const marker = this.focused ? CURSOR_MARKER : "";
 
 		// Use inverse video to show cursor
-		const cursorChar = `\x1b[7m${atCursor}\x1b[27m`; // ESC[7m = reverse video, ESC[27m = normal
+		const cursorChar = isTerminalWindowFocused() ? `\x1b[7m${atCursor}\x1b[27m` : atCursor;
 		const textWithCursor = beforeCursor + marker + cursorChar + afterCursor;
 
 		// Calculate visual width

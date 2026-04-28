@@ -69,6 +69,12 @@ export const CURSOR_MARKER = "\x1b_pi:c\x07";
 
 export { visibleWidth };
 
+let terminalWindowFocused = true;
+
+export function isTerminalWindowFocused(): boolean {
+	return terminalWindowFocused;
+}
+
 /**
  * Anchor position for overlays
  */
@@ -236,6 +242,7 @@ export class TUI extends Container {
 	private previousViewportTop = 0; // Track previous viewport top for resize-aware cursor moves
 	private fullRedrawCount = 0;
 	private stopped = false;
+	private terminalFocused = true;
 
 	// Overlay stack for modal components rendered on top of base content
 	private focusOrderCounter = 0;
@@ -283,6 +290,17 @@ export class TUI extends Container {
 	 */
 	setClearOnShrink(enabled: boolean): void {
 		this.clearOnShrink = enabled;
+	}
+
+	isTerminalFocused(): boolean {
+		return this.terminalFocused;
+	}
+
+	private setTerminalFocused(focused: boolean): void {
+		if (this.terminalFocused === focused) return;
+		this.terminalFocused = focused;
+		terminalWindowFocused = focused;
+		this.requestRender();
 	}
 
 	setFocus(component: Component | null): void {
@@ -417,6 +435,8 @@ export class TUI extends Container {
 
 	start(): void {
 		this.stopped = false;
+		this.terminalFocused = true;
+		terminalWindowFocused = true;
 		this.terminal.start(
 			(data) => this.handleInput(data),
 			() => this.requestRender(),
@@ -449,6 +469,8 @@ export class TUI extends Container {
 
 	stop(): void {
 		this.stopped = true;
+		this.terminalFocused = true;
+		terminalWindowFocused = true;
 		if (this.renderTimer) {
 			clearTimeout(this.renderTimer);
 			this.renderTimer = undefined;
@@ -519,6 +541,11 @@ export class TUI extends Container {
 	}
 
 	private handleInput(data: string): void {
+		if (data === "\x1b[I" || data === "\x1b[O") {
+			this.setTerminalFocused(data === "\x1b[I");
+			return;
+		}
+
 		if (this.inputListeners.size > 0) {
 			let current = data;
 			for (const listener of this.inputListeners) {
@@ -1234,7 +1261,7 @@ export class TUI extends Container {
 		}
 
 		this.hardwareCursorRow = targetRow;
-		if (this.showHardwareCursor) {
+		if (this.showHardwareCursor || !this.terminalFocused) {
 			this.terminal.showCursor();
 		} else {
 			this.terminal.hideCursor();
